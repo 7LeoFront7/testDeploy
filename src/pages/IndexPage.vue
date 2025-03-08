@@ -190,12 +190,80 @@
       <!-- Кнопка -->
       <q-btn label="Получить данные" color="primary" @click="collectData" />
     </div>
+
+    <!-- Таблица -->
+    <q-table
+      style="height: 400px"
+      flat bordered
+      title="Данные"
+      :rows="paginatedData"
+    :columns="columns"
+    row-key="id_ks"
+    v-model:pagination="pagination"
+    :rows-per-page-options="[10, 20, 50]"
+    @request="onRequest"
+    >
+    <!-- Пагинация -->
+    <template v-slot:pagination>
+      <q-pagination
+        v-model="pagination.page"
+        :max="Math.ceil(pagination.rowsNumber / pagination.rowsPerPage)"
+        :max-pages="10"
+        direction-links
+        boundary-links
+      />
+    </template>
+    </q-table>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import {ref, onMounted, computed} from "vue";
 import axios from "axios";
+
+const columns = [
+  { name: "id_ks", label: "ID КС", field: "id_ks", align: "left" as const, sortable: true },
+  { name: "sum_end", label: "Сумма окончания", field: "sum_end", align: "left" as const, sortable: true },
+  { name: "sum_start", label: "Сумма начала", field: "sum_start", align: "left" as const, sortable: true },
+  { name: "link", label: "Ссылка", field: "link", align: "left" as const, sortable: true },
+  { name: "provider_inn", label: "ИНН поставщика", field: "provider_inn", align: "left" as const, sortable: true },
+  { name: "provider_org_name", label: "Название поставщика", field: "provider_org_name", align: "left" as const, sortable: true },
+  { name: "provider_region", label: "Регион поставщика", field: "provider_region", align: "left" as const, sortable: true },
+  { name: "start_date_ks", label: "Дата начала КС", field: "start_date_ks", align: "left" as const, sortable: true },
+  { name: "end_date_ks", label: "Дата окончания КС", field: "end_date_ks", align: "left" as const, sortable: true },
+  { name: "winner_inn", label: "ИНН победителя", field: "winner_inn", align: "left" as const, sortable: true },
+  { name: "winner_org", label: "Организация победителя", field: "winner_org", align: "left" as const, sortable: true },
+  { name: "winner_city", label: "Город победителя", field: "winner_city", align: "left" as const, sortable: true },
+  { name: "members_providers", label: "Участники", field: "members_providers", align: "left" as const, sortable: true },
+  { name: "kpgz_code", label: "Код КПГЗ", field: "kpgz_code", align: "left" as const, sortable: true },
+  { name: "kpgz_name", label: "Название КПГЗ", field: "kpgz_name", align: "left" as const, sortable: true },
+  { name: "do", label: "Моё участие", field: "do", align: "left" as const, sortable: true },
+];
+
+const pagination = ref({
+  page: 1, // Текущая страница
+  rowsPerPage: 10, // Количество строк на странице
+  rowsNumber: 0, // Общее количество строк (для пагинации)
+});
+
+const onRequest = (props: any) => {
+  const { page, rowsPerPage } = props.pagination;
+
+  // Обновляем пагинацию
+  pagination.value.page = page;
+  pagination.value.rowsPerPage = rowsPerPage;
+
+  // Если данные подгружаются с сервера постранично, добавьте здесь логику для загрузки данных
+  // Например:
+  // loadData(page, rowsPerPage);
+};
+
+// Вычисляемое свойство для отображения данных на текущей странице
+const paginatedData = computed(() => {
+  const start = (pagination.value.page - 1) * pagination.value.rowsPerPage;
+  const end = start + pagination.value.rowsPerPage;
+  return tableData.value.slice(start, end);
+});
 
 // Типы данных
 interface InnItem {
@@ -231,6 +299,8 @@ const optionsCustomers = ref<{ label: string; value: number }[]>([]); // Отф�
 const originalOptionsKpgz = ref<{ label: string; value: string }[]>([]); // Исходный список КПГЗ
 const optionsKpgz = ref<{ label: string; value: string }[]>([]); // Отфильтрованный список КПГЗ
 const loadingKpgz = ref(false); // Состояние загрузки для КПГЗ
+
+const tableData = ref<any[]>([]); // Данные для таблицы
 
 const optionsCity = ref(["Москва", "Санкт-Петербург"]);
 const optionsMe = ref([
@@ -484,6 +554,12 @@ const collectData = async () => {
   try {
     const response = await axios.get(url);
     console.log("Ответ сервера:", response.data);
+
+    // Сохраняем данные в таблицу
+    tableData.value = response.data.data;
+
+    // Обновляем пагинацию
+    pagination.value.rowsNumber = tableData.value.length;
   } catch (error) {
     console.error("Ошибка запроса:", error);
   }

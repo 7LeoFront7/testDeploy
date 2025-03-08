@@ -193,6 +193,7 @@
 
     <!-- Таблица -->
     <q-table
+      class="q-my-lg"
       style="height: 400px"
       flat bordered
       title="Данные"
@@ -214,12 +215,129 @@
       />
     </template>
     </q-table>
+
+    <div class="row q-gutter-md q-mb-lg">
+      <q-select
+        dense clearable filled
+        v-model="modelXAxis"
+        use-input input-debounce="0"
+        label="Ось X"
+        :options="axisOptions"
+        style="width: 250px"
+        emit-value
+      />
+
+      <q-select
+        dense clearable filled
+        v-model="modelYAxis"
+        use-input input-debounce="0"
+        label="Ось Y"
+        :options="axisOptions"
+        style="width: 250px"
+        emit-value
+      />
+
+      <q-select
+        dense clearable filled
+        v-model="modelChartType"
+        use-input input-debounce="0"
+        label="Тип графика"
+        :options="chartTypeOptions"
+        style="width: 250px"
+        emit-value
+      />
+      <q-btn label="Построить график" color="primary" @click="buildChart" />
+    </div>
+
+    <canvas ref="chartCanvas"></canvas>
   </q-page>
 </template>
 
 <script setup lang="ts">
 import {ref, onMounted, computed} from "vue";
 import axios from "axios";
+import { Chart, registerables } from "chart.js";
+
+// Регистрируем необходимые компоненты Chart.js
+Chart.register(...registerables);
+
+// Опции для осей X и Y
+const axisOptions = ref([
+  { label: "Сумма начала", value: "sum_start" },
+  { label: "Сумма окончания", value: "sum_end" },
+  { label: "Дата начала", value: "start_date_ks" },
+  { label: "Дата окончания", value: "end_date_ks" },
+  { label: "Код КПГЗ", value: "kpgz_code" },
+  { label: "Город", value: "winner_city" },
+]);
+
+// Опции для типа графика
+const chartTypeOptions = ref([
+  { label: "Линейный", value: "line" },
+  // Добавьте другие типы графиков, если нужно
+]);
+
+// Переменные для новых селектов
+const modelXAxis = ref<string | null>(null);
+const modelYAxis = ref<string | null>(null);
+const modelChartType = ref<string>("line"); // По умолчанию линейный график
+
+// Ссылка на canvas для графика
+const chartCanvas = ref<HTMLCanvasElement | null>(null);
+let chartInstance: Chart | null = null;
+
+// Функция для построения графика
+const buildChart = () => {
+  if (!modelXAxis.value || !modelYAxis.value || !tableData.value.length) {
+    console.error("Выберите оси X и Y, а также убедитесь, что данные загружены.");
+    return;
+  }
+
+  // Подготовка данных для графика
+  const labels = tableData.value.map((row) => row[modelXAxis.value!]);
+  const data = tableData.value.map((row) => row[modelYAxis.value!]);
+
+  // Уничтожаем предыдущий график, если он существует
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  // Создаем новый график
+  if (chartCanvas.value) {
+    chartInstance = new Chart(chartCanvas.value, {
+      type: modelChartType.value as any, // Тип графика
+      data: {
+        labels: labels, // Ось X
+        datasets: [
+          {
+            label: `${modelYAxis.value} по ${modelXAxis.value}`,
+            data: data, // Ось Y
+            borderColor: "rgba(75, 192, 192, 1)",
+            backgroundColor: "rgba(75, 192, 192, 0.2)",
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: modelXAxis.value,
+            },
+          },
+          y: {
+            title: {
+              display: true,
+              text: modelYAxis.value,
+            },
+          },
+        },
+      },
+    });
+  }
+};
 
 const columns = [
   { name: "id_ks", label: "ID КС", field: "id_ks", align: "left" as const, sortable: true },
